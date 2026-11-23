@@ -50,8 +50,8 @@ def _add_output_args(p: argparse.ArgumentParser) -> None:
     w.add_argument("--watch", metavar="STATE_FILE",
                    help="only output listings not seen in previous runs (state kept in STATE_FILE)")
     w.add_argument("--every", type=float, metavar="SECONDS", help="with --watch: repeat every SECONDS")
-    w.add_argument("--block-wait", type=float, default=1800, metavar="SECONDS",
-                   help="with --every: pause after a block (default 1800)")
+    w.add_argument("--block-wait", type=float, default=600, metavar="SECONDS",
+                   help="with --every: pause after a lasting block (default 600)")
 
 
 def build_parser() -> argparse.ArgumentParser:

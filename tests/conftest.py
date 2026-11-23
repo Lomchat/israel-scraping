@@ -62,8 +62,9 @@ def feed(private: list, agency: list, total_pages: int, **promoted: list) -> Fak
 
 @pytest.fixture
 def client_with() -> Callable[[Callable[[str, dict], FakeResponse]], tuple[Yad2, FakeSession]]:
-    def make(route: Callable[[str, dict], FakeResponse]) -> tuple[Yad2, FakeSession]:
+    def make(route: Callable[[str, dict], FakeResponse], **options: Any) -> tuple[Yad2, FakeSession]:
         session = FakeSession(route)
-        return Yad2(session=session, delay=0, retries=0), session
+        settings = {"delay": 0, "retries": 0, "block_retries": 0, "block_wait": 0, **options}
+        return Yad2(session=session, **settings), session
 
     return make

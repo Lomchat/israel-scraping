@@ -55,8 +55,8 @@ yad2 realestate rent --city raanana --max-price 8000 --watch seen.json --every 3
 ```
 
 The first run outputs every current listing (redirect it to `/dev/null` to start from scratch).
-With `--every`, a block from Yad2 pauses the loop (`--block-wait`, 30 min by default) instead of
-stopping it.
+With `--every`, a lasting block from Yad2 pauses the loop (`--block-wait`, 10 min by default)
+instead of stopping it.
 
 Run `yad2 realestate --help` for all filters.
 
@@ -117,8 +117,8 @@ and ranges given as `(min, max)` tuples (`None` for an open bound): `year`, `pri
 
 ### Errors
 
-- `BlockedError`: Yad2's bot protection answered instead of the API. The blocks we have seen
-  lasted less than an hour; wait and slow down.
+- `BlockedError`: Yad2's bot protection kept refusing the request. The client already waited and
+  retried (`block_retries=2`, `block_wait=60` seconds by default); slow down and try later.
 - `Yad2APIError`: the API rejected the request (it refuses unknown parameters, for instance).
 - `LookupError`: unknown city name.
 
@@ -130,6 +130,10 @@ redirected to a captcha page, while the same request made with a browser's finge
 through. yad2-client uses `curl_cffi` to present that fingerprint, sends the headers the site
 sends (`Origin`, `Referer`), and never needs a headless browser, which Radware watches much
 more closely on the HTML pages.
+
+The API also reacts to volume: in our tests, thousands of requests within a few minutes got the
+IP refused for a few minutes. The default pace (one request per second, about 40 listings each)
+is far below that, and a whole city like Tel Aviv is a few hundred requests.
 
 ## Responsible use
 

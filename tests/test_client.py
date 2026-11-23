@@ -22,6 +22,12 @@ def test_block_and_api_errors_are_told_apart(client_with):
         client.get_json("/realestate-feed/rent/feed", {"foo": 1})
     assert err.value.status == 400 and "foo is not allowed" in err.value.message
 
+    # an isolated refusal (common under load) is waited out instead of aborting a long sweep
+    answers = iter([redirect, FakeResponse(body={"data": {"ok": True}})])
+    client, session = client_with(lambda url, params: next(answers), block_retries=1)
+    assert client.get_json("/realestate-feed/rent/feed", {"region": 1}) == {"data": {"ok": True}}
+    assert len(session.calls) == 2
+
 
 def test_city_names_resolve_to_ids_and_region():
     assert build_params("raanana", None, {}) == {"city": "8700", "region": 1}

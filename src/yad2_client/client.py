@@ -61,6 +61,9 @@ class Yad2:
     :param delay: minimum seconds between two requests. Be gentle: the default is one per second.
     :param timeout: request timeout in seconds.
     :param retries: retries on network errors, HTTP 429 and 5xx (with exponential backoff).
+    :param block_retries: when the bot protection refuses a request, wait ``block_wait`` seconds
+        and retry, at most this many times, before raising ``BlockedError``.
+    :param block_wait: seconds to wait after a refusal.
     :param proxy: optional proxy URL, e.g. ``socks5h://127.0.0.1:1080``.
     :param session: custom session object (mainly for tests).
     """
@@ -72,6 +75,8 @@ class Yad2:
         delay: float = 1.0,
         timeout: float = 30.0,
         retries: int = 2,
+        block_retries: int = 2,
+        block_wait: float = 60.0,
         proxy: str | None = None,
         session: Any = None,
     ):
@@ -81,6 +86,8 @@ class Yad2:
         self.delay = delay
         self.timeout = timeout
         self.retries = retries
+        self.block_retries = block_retries
+        self.block_wait = block_wait
         self._proxies = {"http": proxy, "https": proxy} if proxy else None
         self._session = session or cffi_requests.Session(impersonate=impersonate)
         self._last_request = 0.0
@@ -101,7 +108,8 @@ class Yad2:
         """
         url = API_BASE + path
         query = clean_params(params)
-        for attempt in range(self.retries + 1):
+        failures = blocks = 0
+        while True:
             self._throttle()
             try:
                 resp = self._session.get(
@@ -113,25 +121,31 @@ class Yad2:
                     allow_redirects=False,
                 )
             except Exception as exc:  # curl_cffi raises its own error types
-                if attempt == self.retries:
+                if failures >= self.retries:
                     raise Yad2Error(f"network error on {url}: {exc}") from exc
-                time.sleep(2**attempt)
+                failures += 1
+                time.sleep(2**failures)
                 continue
 
             if _is_blocked(resp):
-                raise BlockedError(
-                    f"blocked by Yad2's bot protection on {path} (HTTP {resp.status_code}). "
-                    "Blocks are usually temporary: wait, lower the request rate, and retry."
-                )
+                # Isolated refusals happen under load, and blocks last minutes: back off, then retry.
+                if blocks >= self.block_retries:
+                    raise BlockedError(
+                        f"blocked by Yad2's bot protection on {path} (HTTP {resp.status_code}). "
+                        "Blocks are usually temporary: wait, lower the request rate, and retry."
+                    )
+                blocks += 1
+                time.sleep(self.block_wait)
+                continue
             if resp.status_code == 429 or resp.status_code >= 500:
-                if attempt == self.retries:
+                if failures >= self.retries:
                     raise Yad2APIError(resp.status_code, _error_message(resp))
-                time.sleep(2 ** (attempt + 1))
+                failures += 1
+                time.sleep(2**failures)
                 continue
             if resp.status_code >= 400:
                 raise Yad2APIError(resp.status_code, _error_message(resp))
             return resp.json()
-        raise AssertionError("unreachable")
 
 
 def _error_message(resp: Any) -> str:
