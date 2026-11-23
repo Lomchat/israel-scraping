@@ -28,9 +28,11 @@ class FakeSession:
     def __init__(self, route: Callable[[str, dict], FakeResponse]):
         self.route = route
         self.calls: list[tuple[str, dict]] = []
+        self.proxies: list[str | None] = []
 
-    def get(self, url: str, params: dict | None = None, **_: Any) -> FakeResponse:
+    def get(self, url: str, params: dict | None = None, proxies: dict | None = None, **_: Any) -> Any:
         self.calls.append((url, dict(params or {})))
+        self.proxies.append((proxies or {}).get("https"))
         return self.route(url, dict(params or {}))
 
 
@@ -65,6 +67,6 @@ def client_with() -> Callable[[Callable[[str, dict], FakeResponse]], tuple[Yad2,
     def make(route: Callable[[str, dict], FakeResponse], **options: Any) -> tuple[Yad2, FakeSession]:
         session = FakeSession(route)
         settings = {"delay": 0, "retries": 0, "block_retries": 0, "block_wait": 0, **options}
-        return Yad2(session=session, **settings), session
+        return Yad2(session_factory=lambda: session, **settings), session
 
     return make

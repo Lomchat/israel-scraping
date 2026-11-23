@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "yad2-client"
-version = "0.1.0"
+version = "0.2.0"
 description = "Unofficial Python client and CLI for Yad2 (yad2.co.il): real-estate and vehicle listings"
 readme = "README.md"
 license = "MIT"

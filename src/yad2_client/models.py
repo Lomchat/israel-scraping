@@ -11,6 +11,12 @@ from .privacy import scrub
 T = TypeVar("T")
 
 
+def payload_data(payload: Any) -> dict:
+    """The ``data`` object of an API answer, empty when the API sends nothing usable."""
+    data = payload.get("data") if isinstance(payload, dict) else None
+    return data if isinstance(data, dict) else {}
+
+
 def _get(obj: Any, *path: str) -> Any:
     for key in path:
         if not isinstance(obj, dict):

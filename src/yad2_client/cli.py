@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import logging
 import os
 import sys
 import time
@@ -17,7 +18,7 @@ from .client import Yad2
 from .errors import BlockedError, Yad2Error
 from .locations import regions, search_cities
 from .realestate import FILTERS as RE_FILTERS
-from .vehicles import CATEGORIES
+from .vehicles import CATEGORIES, all_manufacturers, search_manufacturers
 
 RE_BOOL = {
     "parking", "elevator", "balcony", "shelter", "air_conditioner", "renovated", "furniture",
@@ -63,10 +64,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--delay", type=float, default=1.0, help="seconds between requests (default 1)")
     parser.add_argument("--impersonate", default="chrome", help="browser fingerprint (curl_cffi name)")
     parser.add_argument("--proxy", help="proxy URL, e.g. socks5h://127.0.0.1:1080")
+    parser.add_argument("--fallback-proxy", action="append", default=[], metavar="URL",
+                        help="proxy to switch to when refused, e.g. a local WARP proxy (repeatable)")
     sub = parser.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("cities", help="find city ids and regions by name")
     p.add_argument("query", help="name in Hebrew or English, or an id")
+
+    p = sub.add_parser("manufacturers", help="find car manufacturer ids by name")
+    p.add_argument("query", nargs="?", help="name in Hebrew or English, or an id (default: list all)")
 
     p = sub.add_parser("realestate", help="search apartments and houses for sale or rent")
     p.add_argument("deal", choices=["forsale", "rent"])
@@ -91,7 +97,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p = sub.add_parser("vehicles", help="search cars, motorcycles, scooters, trucks")
     p.add_argument("category", nargs="?", default="cars", choices=CATEGORIES)
-    p.add_argument("--manufacturer", type=int, help="manufacturer id (e.g. 19 = Toyota)")
+    p.add_argument("--manufacturer", help="manufacturer name or id, e.g. toyota (see `yad2 manufacturers`)")
     p.add_argument("--model", type=int, help="model id")
     p.add_argument("--area", type=int, help="area id")
     for name in ("year", "price", "km", "hand"):
@@ -207,8 +213,16 @@ def main(argv: list[str] | None = None) -> int:
             region = f"region {c.region_id} ({names.get(c.region_id, '?')})"
             print(f"{c.id:>5}  {c.name_en:<28} {c.name_he:<22} {region}")
         return 0
+    if args.command == "manufacturers":
+        makers = search_manufacturers(args.query, limit=200) if args.query else sorted(
+            all_manufacturers(), key=lambda m: -m.listings)
+        for m in makers:
+            print(f"{m.id:>5}  {m.name_en:<20} {m.name_he:<20} {m.listings:>6} listings")
+        return 0
 
-    client = Yad2(delay=args.delay, impersonate=args.impersonate, proxy=args.proxy)
+    logging.basicConfig(level=logging.WARNING, format="%(message)s", stream=sys.stderr)
+    client = Yad2(delay=args.delay, impersonate=args.impersonate, proxy=args.proxy,
+                  fallback_proxies=args.fallback_proxy)
     try:
         if args.command == "item":
             detail = client.realestate.get(args.token)

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from .locations import find_city
 from .models import Listing, ListingDetail, Page
+from .models import payload_data as _data
 
 if TYPE_CHECKING:
     from .client import Yad2
@@ -86,7 +87,7 @@ class RealEstate:
         """
         params = build_params(city, region, filters)
         params["page"] = page
-        data = self._client.get_json(f"/realestate-feed/{deal}/feed", params)["data"]
+        data = _data(self._client.get_json(f"/realestate-feed/{deal}/feed", params))
         items, seen = [], set()
         for stream in STREAMS:
             for raw in data.get(stream) or []:
@@ -133,7 +134,7 @@ class RealEstate:
             params.pop("city", None)
             params["bBox"] = ",".join(str(x) for x in bbox)
             params["zoom"] = zoom or 13
-        data = self._client.get_json(f"/realestate-feed/{deal}/map", params)["data"]
+        data = _data(self._client.get_json(f"/realestate-feed/{deal}/map", params))
         return [Listing.from_api(m) for m in data.get("markers") or [] if m.get("token")]
 
     def get(self, token: str) -> ListingDetail:

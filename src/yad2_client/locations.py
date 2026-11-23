@@ -9,9 +9,13 @@ from __future__ import annotations
 import json
 import re
 import unicodedata
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from functools import lru_cache
 from importlib import resources
+from typing import Any, TypeVar
+
+T = TypeVar("T")
 
 
 @dataclass(frozen=True)
@@ -44,22 +48,35 @@ def regions() -> dict[int, str]:
     return {int(k): v for k, v in _data()["regions"].items()}
 
 
-def search_cities(query: str, limit: int = 10) -> list[City]:
-    """Cities whose id, Hebrew or English name matches ``query``, best matches first."""
+def rank_matches(
+    query: str | int,
+    items: Iterable[T],
+    ident: Callable[[T], Any],
+    names: Callable[[T], Iterable[str]],
+    weight: Callable[[T], int],
+) -> list[T]:
+    """Items whose id or one of whose names matches ``query``: exact matches, then names starting
+    with it, then names containing it; most popular first within each group."""
     q = _norm(str(query))
     if not q:
         return []
     exact, prefix, contains = [], [], []
-    for city in all_cities():
-        names = (city.id.lstrip("0").lower(), _norm(city.name_en), _norm(city.name_he))
-        if q.lstrip("0") in names[:1] or q in names[1:]:
-            exact.append(city)
-        elif any(n.startswith(q) for n in names[1:]):
-            prefix.append(city)
-        elif any(q in n for n in names[1:]):
-            contains.append(city)
-    ranked = [sorted(group, key=lambda c: -c.popularity) for group in (exact, prefix, contains)]
-    return [c for group in ranked for c in group][:limit]
+    for item in items:
+        normalized = [n for n in (_norm(x) for x in names(item)) if n]
+        if q.lstrip("0") == str(ident(item)).lstrip("0").lower() or q in normalized:
+            exact.append(item)
+        elif any(n.startswith(q) for n in normalized):
+            prefix.append(item)
+        elif any(q in n for n in normalized):
+            contains.append(item)
+    return [x for group in (exact, prefix, contains) for x in sorted(group, key=lambda x: -weight(x))]
+
+
+def search_cities(query: str, limit: int = 10) -> list[City]:
+    """Cities whose id, Hebrew or English name matches ``query``, best matches first."""
+    found = rank_matches(query, all_cities(), lambda c: c.id, lambda c: (c.name_en, c.name_he),
+                         lambda c: c.popularity)
+    return found[:limit]
 
 
 def find_city(query: str | int) -> City:

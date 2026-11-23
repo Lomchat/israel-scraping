@@ -1,0 +1,21 @@
+name: Release
+
+# Publishing a GitHub release uploads the package to PyPI ("trusted publishing": no token to
+# store; the PyPI project must list this repository, workflow and the "pypi" environment).
+on:
+  release:
+    types: [published]
+
+jobs:
+  pypi:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install build && python -m build
+      - uses: pypa/gh-action-pypi-publish@release/v1
