@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling>=1.26"]
+build-backend = "hatchling.build"
+
+[project]
+name = "yad2-client"
+version = "0.1.0"
+description = "Unofficial Python client and CLI for Yad2 (yad2.co.il): real-estate and vehicle listings"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+requires-python = ">=3.10"
+authors = [{ name = "yad2-client contributors" }]
+keywords = ["yad2", "israel", "real-estate", "scraper", "apartments", "cars", "listings"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Topic :: Internet :: WWW/HTTP",
+]
+dependencies = ["curl_cffi>=0.7"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "ruff>=0.6"]
+
+[project.scripts]
+yad2 = "yad2_client.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/Lomchat/yad2-client"
+Issues = "https://github.com/Lomchat/yad2-client/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/yad2_client"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+extend-exclude = ["probe"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
