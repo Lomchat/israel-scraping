@@ -25,11 +25,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from yad2_client import BlockedError, Yad2, Yad2Error  # noqa: E402
+from israel_listings import BlockedError, ListingsError, Madlan, Yad2  # noqa: E402
+from israel_listings.madlan import STEP  # noqa: E402
 
 SEARCHES = [
-    ("forsale", "tel aviv"), ("rent", "tel aviv"), ("forsale", "jerusalem"), ("rent", "jerusalem"),
-    ("forsale", "haifa"), ("rent", "haifa"), ("forsale", "raanana"), ("rent", "raanana"),
+    ("sale", "tel aviv"), ("rent", "tel aviv"), ("sale", "jerusalem"), ("rent", "jerusalem"),
+    ("sale", "haifa"), ("rent", "haifa"), ("sale", "raanana"), ("rent", "raanana"),
 ]
 
 
@@ -42,6 +43,8 @@ def main() -> None:
     ap.add_argument("--stop-on-block", action="store_true", help="stop at the first refusal")
     ap.add_argument("--proxy", help="e.g. socks5h://127.0.0.1:40000")
     ap.add_argument("--impersonate", default="chrome")
+    ap.add_argument("--site", choices=["yad2", "madlan"], default="yad2")
+    ap.add_argument("--page-size", type=int, default=100, help="Madlan: listings per request (max 1000)")
     args = ap.parse_args()
 
     searches = itertools.cycle(SEARCHES)
@@ -65,7 +68,7 @@ def main() -> None:
                 with lock:
                     stats["sessions_replaced"] += 1
 
-    client_log = logging.getLogger("yad2_client")
+    client_log = logging.getLogger("israel_listings")
     client_log.setLevel(logging.INFO)
     client_log.addHandler(CountReplacements())
     latencies: list[float] = []
@@ -94,13 +97,17 @@ def main() -> None:
         return False
 
     def worker() -> None:
-        client = Yad2(delay=0, retries=1, block_retries=0, proxy=args.proxy, impersonate=args.impersonate)
+        site = Yad2 if args.site == "yad2" else Madlan
+        client = site(delay=0, retries=1, block_retries=0, proxy=args.proxy, impersonate=args.impersonate)
         while take_slot():
             with lock:
                 deal, city, page = next_request()
             t0 = time.monotonic()
             try:
-                result = client.realestate.search(deal, city=city, page=page)
+                if args.site == "yad2":
+                    result = client.realestate.search(deal, city=city, page=page)
+                else:
+                    result = client.search(deal, city=city, page_size=args.page_size, start=(page - 1) * STEP)
             except BlockedError:
                 with lock:
                     stats["refused"] += 1
@@ -114,7 +121,7 @@ def main() -> None:
                         stats["pauses"] += 1
                         print(f"{_now()} refused -> all threads pause {args.pause:.0f}s", flush=True)
                 continue
-            except Yad2Error:
+            except ListingsError:
                 with lock:
                     stats["errors"] += 1
                 continue
@@ -123,8 +130,8 @@ def main() -> None:
                 stats["listings"] += len(result.items)
                 stats["empty"] += not result.items
                 latencies.append(time.monotonic() - t0)
-                if result.total_pages:
-                    last_page[(deal, city)] = min(40, result.total_pages)
+                pages = result.total_pages or (result.total or 0) // STEP + 1
+                last_page[(deal, city)] = max(1, min(40, pages))
 
     threads = [threading.Thread(target=worker, daemon=True) for _ in range(args.threads)]
     for t in threads:

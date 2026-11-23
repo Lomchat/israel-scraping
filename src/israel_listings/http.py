@@ -1,4 +1,6 @@
-"""HTTP layer: browser-like TLS fingerprint, polite pacing, retries, block detection."""
+"""Shared HTTP layer: browser TLS fingerprint, polite pacing, session renewal, fallback routes,
+retries and refusal detection. Each site client gives its base URL, headers and a function that
+recognizes its bot protection's refusals."""
 
 from __future__ import annotations
 
@@ -9,21 +11,9 @@ from typing import Any
 
 from curl_cffi import requests as cffi_requests
 
-from .errors import BlockedError, Yad2APIError, Yad2Error
+from .errors import ApiError, BlockedError, ListingsError
 
-log = logging.getLogger("yad2_client")
-
-API_BASE = "https://gw.yad2.co.il"
-SITE = "https://www.yad2.co.il"
-
-# The API rejects some clients that do not look like the site itself calling it
-# (e.g. a Chrome TLS fingerprint without a Referer), so always send what the site sends.
-HEADERS = {
-    "Accept": "application/json, text/plain, */*",
-    "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Origin": SITE,
-    "Referer": SITE + "/",
-}
+log = logging.getLogger("israel_listings")
 
 
 def _encode(value: Any) -> Any:
@@ -44,48 +34,37 @@ def clean_params(params: Mapping[str, Any] | None) -> dict[str, Any]:
     return out
 
 
-def _is_blocked(resp: Any) -> bool:
-    # The API never redirects: Radware redirects blocked clients to validate.perfdrive.com.
-    if 300 <= resp.status_code < 400:
-        return True
-    head = (resp.text or "")[:5000]
-    # The firewall also answers 200 with a JSON (or HTML) stub carrying only an event id:
-    # {"_event_transid": ..., "_event_clientip": ...}. Taken as data, it would look like "no results".
-    if "_event_transid" in head:
-        return True
-    if "json" in (resp.headers.get("content-type") or ""):
-        return False
-    # The API answers its own errors in JSON; an HTML 403 comes from the firewall.
-    return resp.status_code == 403 or "perfdrive" in head or "Radware" in head
+class HttpClient:
+    """HTTP client shared by the site clients.
 
-
-class Yad2:
-    """Client for Yad2's public JSON API.
-
-    >>> yad2 = Yad2()
-    >>> page = yad2.realestate.search("rent", city="raanana", max_price=8000)
-
+    :param base_url: e.g. ``https://gw.yad2.co.il``.
+    :param headers: headers sent with every request (what the site itself sends).
+    :param is_blocked: tells whether a response is a refusal from the bot protection.
+    :param site: name used in messages.
     :param impersonate: browser whose TLS/HTTP2 fingerprint is presented (see curl_cffi).
-    :param delay: minimum seconds between two requests. Be gentle: the default is one per second.
+    :param delay: minimum seconds between two requests.
     :param timeout: request timeout in seconds.
     :param retries: retries on network errors, HTTP 429 and 5xx (with exponential backoff).
-    :param block_retries: when every route is refused by the bot protection, wait ``block_wait``
-        seconds and retry, at most this many times, before raising ``BlockedError``.
+    :param block_retries: when every route is refused, wait ``block_wait`` seconds and retry, at
+        most this many times, before raising ``BlockedError``.
     :param block_wait: seconds to wait after a refusal.
-    :param proxy: optional proxy URL, e.g. ``socks5h://127.0.0.1:1080``.
-    :param fallback_proxies: proxies to switch to when the main route is refused, e.g. a local
-        Cloudflare WARP proxy. A refused route rests ``route_cooldown`` seconds, then the client
-        goes back to it (the main route is always preferred).
+    :param proxy: optional proxy URL for the main route, e.g. ``socks5h://127.0.0.1:1080``.
+    :param fallback_proxies: proxies to switch to when the main route is refused (e.g. a local
+        Cloudflare WARP proxy). A refused route rests ``route_cooldown`` seconds, then the client
+        goes back to it: the main route is always preferred.
     :param route_cooldown: seconds a refused route is left aside.
-    :param session_max_requests: start a fresh session (new cookies) after this many requests.
-        The bot protection refuses a session after about 450 requests, whatever the pace; a
-        refused session is also replaced at once.
+    :param session_max_requests: start a fresh session (new cookies) after this many requests;
+        a used session that gets refused is also replaced at once.
     :param session_factory: callable returning a new HTTP session (mainly for tests).
     """
 
     def __init__(
         self,
         *,
+        base_url: str,
+        headers: Mapping[str, str],
+        is_blocked: Callable[[Any], bool],
+        site: str,
         impersonate: str = "chrome",
         delay: float = 1.0,
         timeout: float = 30.0,
@@ -98,9 +77,10 @@ class Yad2:
         session_max_requests: int = 300,
         session_factory: Callable[[], Any] | None = None,
     ):
-        from .realestate import RealEstate
-        from .vehicles import Vehicles
-
+        self.base_url = base_url
+        self.headers = dict(headers)
+        self.is_blocked = is_blocked
+        self.site = site
         self.delay = delay
         self.timeout = timeout
         self.retries = retries
@@ -115,8 +95,6 @@ class Yad2:
         self._sessions: dict[int, Any] = {}  # one session (cookies) per route
         self._session_uses: dict[int, int] = {}
         self._last_request = 0.0
-        self.realestate = RealEstate(self)
-        self.vehicles = Vehicles(self)
 
     @property
     def route(self) -> str:
@@ -135,7 +113,7 @@ class Yad2:
         for index, until in enumerate(self._resting_until):
             if until <= now:
                 if index != self._route:
-                    log.warning("yad2: now using route %s", _label(self._routes[index]))
+                    log.warning("%s: now using route %s", self.site, _label(self._routes[index]))
                 self._route = index
                 return True
         return False
@@ -148,14 +126,23 @@ class Yad2:
         self._session_uses[route] += 1
         return self._sessions[route]
 
-    def get_json(self, path: str, params: Mapping[str, Any] | None = None) -> Any:
-        """GET ``API_BASE + path`` and return the decoded JSON body.
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: Mapping[str, Any] | None = None,
+        data: str | bytes | None = None,
+        headers: Mapping[str, str] | None = None,
+    ) -> Any:
+        """Send a request and return the response, once it is neither refused nor an error.
 
-        :raises BlockedError: the bot protection answered instead of the API.
-        :raises Yad2APIError: the API answered with an error.
+        :raises BlockedError: the bot protection kept refusing on every route.
+        :raises ApiError: the site answered with an error.
         """
-        url = API_BASE + path
+        url = self.base_url + path
         query = clean_params(params)
+        all_headers = {**self.headers, **(headers or {})}
         failures = blocks = 0
         while True:
             self._choose_route()  # if every route rests, keep the current one
@@ -163,38 +150,40 @@ class Yad2:
             proxy = self._routes[route]
             self._throttle()
             try:
-                resp = self._session_for(route).get(
+                resp = self._session_for(route).request(
+                    method,
                     url,
-                    params=query,
-                    headers=HEADERS,
+                    params=query or None,
+                    data=data,
+                    headers=all_headers,
                     proxies={"http": proxy, "https": proxy} if proxy else None,
                     timeout=self.timeout,
                     allow_redirects=False,
                 )
             except Exception as exc:  # curl_cffi raises its own error types
                 if failures >= self.retries:
-                    raise Yad2Error(f"network error on {url} via {_label(proxy)}: {exc}") from exc
+                    raise ListingsError(f"{self.site}: network error on {url} via {_label(proxy)}: {exc}") from exc
                 failures += 1
                 time.sleep(2**failures)
                 continue
 
-            if _is_blocked(resp):
+            if self.is_blocked(resp):
                 used = self._session_uses.get(route, 0)
                 if used > 1:
-                    # Refusals are mostly tied to the session (cookies), not the IP: retry at once
+                    # Refusals are often tied to the session (cookies), not the IP: retry at once
                     # with a fresh one. A fresh session refused too means the route itself is.
-                    log.info("yad2: session refused after %d requests, starting a fresh one", used)
+                    log.info("%s: session refused after %d requests, starting a fresh one", self.site, used)
                     del self._sessions[route]
                     continue
                 self._resting_until[route] = time.monotonic() + self.route_cooldown
                 if len(self._routes) > 1:
-                    log.warning("yad2: route %s refused, resting %.0fs", _label(proxy), self.route_cooldown)
+                    log.warning("%s: route %s refused, resting %.0fs", self.site, _label(proxy),
+                                self.route_cooldown)
                     if any(until <= time.monotonic() for until in self._resting_until):
                         continue  # another route is available: switch right away
-                # Isolated refusals happen under load, and blocks last minutes: back off, then retry.
                 if blocks >= self.block_retries:
                     raise BlockedError(
-                        f"blocked by Yad2's bot protection on {path} (HTTP {resp.status_code}). "
+                        f"{self.site}: refused by the bot protection on {path} (HTTP {resp.status_code}). "
                         "Blocks are usually temporary: wait, lower the request rate, and retry."
                     )
                 blocks += 1
@@ -202,13 +191,21 @@ class Yad2:
                 continue
             if resp.status_code == 429 or resp.status_code >= 500:
                 if failures >= self.retries:
-                    raise Yad2APIError(resp.status_code, _error_message(resp))
+                    raise ApiError(resp.status_code, _error_message(resp))
                 failures += 1
                 time.sleep(2**failures)
                 continue
             if resp.status_code >= 400:
-                raise Yad2APIError(resp.status_code, _error_message(resp))
-            return resp.json()
+                raise ApiError(resp.status_code, _error_message(resp))
+            return resp
+
+    def get_json(self, path: str, params: Mapping[str, Any] | None = None) -> Any:
+        """GET ``base_url + path`` and return the decoded JSON body."""
+        return self.request("GET", path, params=params).json()
+
+    def post_json(self, path: str, body: str, headers: Mapping[str, str] | None = None) -> Any:
+        """POST a JSON body to ``base_url + path`` and return the decoded JSON answer."""
+        return self.request("POST", path, data=body.encode(), headers=headers).json()
 
 
 def _label(proxy: str | None) -> str:

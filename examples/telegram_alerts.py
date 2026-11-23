@@ -1,4 +1,4 @@
-"""Send new Yad2 listings to a Telegram chat. Run it every hour or so (cron, systemd timer...).
+"""Send new listings from Yad2 and Madlan to a Telegram chat. Run it every hour or so (cron, systemd timer...).
 
 Setup:
   1. Create a bot with @BotFather and copy its token.
@@ -22,10 +22,11 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from yad2_client import Listing, Yad2
+from israel_listings import Listing, search_all
 
-DEAL = "rent"  # or "forsale"
-SEARCH = {"city": "raanana", "max_price": 8000, "min_rooms": 3}
+DEAL = "rent"  # or "sale"
+CITY = "raanana"
+FILTERS = {"max_price": 8000, "min_rooms": 3}  # filters both sites understand
 STATE = Path(os.environ.get("YAD2_STATE", "seen-telegram.json"))
 
 
@@ -41,16 +42,17 @@ def describe(listing: Listing) -> str:
     size = f"{listing.square_meters} m²" if listing.square_meters else "? m²"
     street = " ".join(str(x) for x in (listing.street, listing.house_number) if x)
     place = ", ".join(x for x in (street, listing.neighborhood, listing.city) if x)
-    return f"🏠 {price} · {rooms} · {size}\n{place}\n{listing.url}"
+    return f"🏠 {price} · {rooms} · {size} ({listing.source})\n{place}\n{listing.url}"
 
 
 def main() -> None:
     first_run = not STATE.exists()
     seen = set() if first_run else set(json.loads(STATE.read_text()))
     new = []
-    for listing in Yad2().realestate.iter_search(DEAL, **SEARCH):
-        if listing.token not in seen:
-            seen.add(listing.token)
+    for listing in search_all(DEAL, CITY, **FILTERS):  # both sites, duplicates dropped
+        key = f"{listing.source}:{listing.id}"
+        if key not in seen:
+            seen.add(key)
             new.append(listing)
     STATE.write_text(json.dumps(sorted(seen)))
     if first_run:

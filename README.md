@@ -1,79 +1,124 @@
-# yad2-client
+# israel-listings
 
-[![CI](https://github.com/Lomchat/yad2-client/actions/workflows/ci.yml/badge.svg)](https://github.com/Lomchat/yad2-client/actions/workflows/ci.yml)
+[![CI](https://github.com/Lomchat/israel-listings/actions/workflows/ci.yml/badge.svg)](https://github.com/Lomchat/israel-listings/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-Unofficial Python library and command line tool to collect listings from
-[Yad2](https://www.yad2.co.il), Israel's largest classifieds site: apartments and houses for sale
-or rent, cars, motorcycles. Export to CSV/JSON, or get only the new listings on each run (alerts).
+Unofficial Python library and command line tools to collect listings from Israeli sites:
+**[Yad2](https://www.yad2.co.il)** (real estate, cars, motorcycles) and
+**[Madlan](https://www.madlan.co.il)** (real estate). One data model for every site, both sites in
+one command with duplicates removed, CSV/JSON export, and alerts that only show new listings.
 
-**Why this one works when most Yad2 scrapers stopped:**
+```bash
+israel-listings rent --city raanana --max-price 8000 --min-rooms 3 -f csv -o raanana.csv
+# 84 listings: 67 from Yad2, 17 more from Madlan (3 listed on both are kept once), same columns
+```
 
-- **No browser, no HTML.** It reads the JSON API the Yad2 website itself uses: 40 listings per
-  request, with coordinates, photos, rooms, size, floor.
-- **Gets past the bot protection** (Radware) by presenting a real browser's TLS fingerprint with
-  [curl_cffi](https://github.com/lexiforest/curl_cffi). Plain `requests`, `curl`, Scrapy and
-  headless browsers are refused.
-- **Stays under the radar**: Yad2 refuses a session after ~450 requests, so the client renews it
-  every 300. Result: 0 refusals in 7,000+ requests at the default pace and at 3 requests/second.
+**Why it works when most scrapers of these sites stopped:**
+
+- **No browser, no HTML.** It talks to the APIs the websites themselves use: Yad2's JSON API and
+  Madlan's GraphQL API. Coordinates, photos, rooms, size, floor, and on Madlan the full price
+  history (every price drop, with its date).
+- **Gets past the bot protections** (Radware on Yad2; Cloudflare and PerimeterX on Madlan) with a
+  real browser's TLS fingerprint ([curl_cffi](https://github.com/lexiforest/curl_cffi)) and the
+  exact headers each site sends. Plain `requests`, `curl`, Scrapy and headless browsers are refused.
+- **Fast.** Madlan answers up to 1,000 listings per request: **all of Madlan, 45,000 listings, in
+  about 6 minutes**. Yad2 stays at **0 refusals in 7,000+ requests** thanks to session renewal.
 - **Measured limits**, not guesses: see [Rate limits](#rate-limits-measured).
-- **Handles refusals**: replaces a refused session at once, waits out a refused IP, or switches
-  to a free fallback route (Cloudflare WARP) and comes back when the block is over.
-- **No personal data**: seller names, ids and phone numbers are never returned.
+- **Handles refusals**: renews a refused session, waits out a refused IP, or switches to a free
+  fallback route (Cloudflare WARP) and comes back when the block is over.
+- **No personal data**: no seller names, ids or phone numbers; phone numbers typed into
+  descriptions are removed too.
 
-> Not affiliated with Yad2. The API is undocumented and may change. See [Responsible use](#responsible-use).
+> Not affiliated with Yad2 or Madlan. Their APIs are undocumented and may change. See
+> [Responsible use](#responsible-use).
 
 ### בעברית
 
-ספריית פייתון וכלי שורת פקודה בקוד פתוח (לא רשמיים) לאיסוף מודעות מיד2: נדל״ן למכירה ולהשכרה
-ורכבים, עם ייצוא ל-CSV או JSON. אפשר לקבל בכל הרצה רק את המודעות החדשות, למשל להתראות בטלגרם.
+ספריית פייתון וכלי שורת פקודה בקוד פתוח (לא רשמיים) לאיסוף מודעות מיד2 וממדלן: נדל״ן למכירה
+ולהשכרה, ורכבים מיד2. שני האתרים בפקודה אחת ובאותו פורמט, בלי כפילויות, עם ייצוא ל-CSV או JSON.
+אפשר לקבל בכל הרצה רק את המודעות החדשות, למשל להתראות בטלגרם.
 
 ```bash
-pip install git+https://github.com/Lomchat/yad2-client
-yad2 realestate rent --city רעננה --max-price 8000 --min-rooms 3 -f csv -o raanana.csv
+pip install git+https://github.com/Lomchat/israel-listings
+israel-listings rent --city רעננה --max-price 8000 --min-rooms 3 -f csv -o raanana.csv
 ```
+
+## The sites
+
+| | Yad2 | Madlan |
+|---|---|---|
+| Content | Real estate for sale and rent, cars, motorcycles, scooters, trucks | Real estate for sale and rent, with price history, building year, condition, taxes |
+| Listings per request | 40 | up to 1,000 |
+| Whole inventory | Tel Aviv for sale: 490 requests | Whole country (45,000 listings): about 50 requests |
+| Protection | Radware Bot Manager + firewall | Cloudflare + PerimeterX on the website, Cloudflare on the API |
+| What it takes | Browser TLS fingerprint, `Referer`, a new session every 300 requests | The site's `x-source` headers; no account, no token |
+| Commands | `yad2`, `israel-listings` | `madlan`, `israel-listings` |
 
 ## Install
 
 ```bash
-pip install git+https://github.com/Lomchat/yad2-client
+pip install git+https://github.com/Lomchat/israel-listings
 ```
 
 Python 3.10+, Linux, macOS or Windows. The only dependency is `curl_cffi`.
 
 ## Command line
 
+### Both sites at once
+
 ```bash
-# Find a city (Hebrew or English)
-yad2 cities raanana
+# Rentals in Ra'anana on Yad2 and Madlan, same columns, a "source" column, duplicates dropped
+israel-listings rent --city raanana --max-price 8000 --min-rooms 3 -f csv -o raanana.csv
 
-# Apartments for rent in Ra'anana, up to 8,000 ₪, 3 rooms or more, as CSV
-yad2 realestate rent --city raanana --max-price 8000 --min-rooms 3 -f csv -o raanana.csv
-
-# Everything for sale in Tel Aviv with parking and an elevator (JSON lines, one listing per line)
-yad2 realestate forsale --city "tel aviv" --parking --elevator > tlv.jsonl
-
-# One listing in full (description, dates, features)
-yad2 item 2zijxipe
-
-# Toyota cars from 2018 to 2022, first or second hand
-yad2 vehicles cars --manufacturer toyota --year 2018-2022 --hand 0-2 --pages 3
-yad2 manufacturers toy        # find manufacturer ids
+# Only one site, or keep the duplicates
+israel-listings sale --city "tel aviv" --sites madlan --parking --elevator > tlv.jsonl
+israel-listings sale --city haifa --keep-duplicates -f json -o haifa.json
 ```
 
-`yad2 realestate --help` lists every filter.
+A property listed on both sites appears once (same street, number, rooms, price within 3%; about
+12% of Madlan's listings for sale in Ra'anana are also on Yad2).
+
+### Madlan
+
+```bash
+# Everything for sale in Israel (40,000+ listings), newest first
+madlan sale -o madlan-sale.jsonl
+
+# Listings of the last 2 days in a neighborhood, private sellers, with a secure room
+madlan rent --city "tel aviv" --neighborhood פלורנטין --created-within-days 2 --seller-types private --shelter
+
+# Price drops, cheapest first, as CSV
+madlan sale --city jerusalem --price-drop --sort price-asc -f csv -o drops.csv
+
+madlan places "נווה זמר"          # find a Madlan location id
+madlan item 3qf8TukWuF9           # one listing in full (description, price history...)
+```
+
+### Yad2
+
+```bash
+yad2 cities raanana                                     # city ids, Hebrew or English
+yad2 realestate rent --city raanana --max-price 8000 --min-rooms 3 -f csv -o raanana.csv
+yad2 realestate sale --city "tel aviv" --parking --elevator > tlv.jsonl
+yad2 item 2zijxipe                                      # one listing in full
+yad2 vehicles cars --manufacturer toyota --year 2018-2022 --hand 0-2 --pages 3
+yad2 manufacturers toy                                  # car manufacturer ids
+```
+
+`--help` on every command lists all filters.
 
 ### Alerts: only new listings
 
-`--watch FILE` remembers what was already seen and only outputs new listings:
+`--watch FILE` remembers what was already seen and only outputs new listings. It works with the
+three commands:
 
 ```bash
 # from cron, e.g. every hour
-yad2 realestate rent --city raanana --max-price 8000 --watch seen.json >> new.jsonl
+israel-listings rent --city raanana --max-price 8000 --watch seen.json >> new.jsonl
 
 # or keep it running
-yad2 realestate rent --city raanana --max-price 8000 --watch seen.json --every 3600
+madlan rent --city raanana --max-price 8000 --watch seen.json --every 3600
 ```
 
 The first run outputs every current listing (send it to `/dev/null` to start fresh). With
@@ -83,106 +128,128 @@ stopping it. For Telegram alerts, see [examples/telegram_alerts.py](examples/tel
 ## Python
 
 ```python
-from yad2_client import Yad2
+from israel_listings import Madlan, Yad2, search_all
 
-yad2 = Yad2()  # one request per second by default
+# Both sites, one stream, duplicates dropped
+for listing in search_all("rent", "raanana", max_price=8000, min_rooms=3):
+    print(listing.source, listing.price, listing.rooms, listing.street, listing.url)
 
-# One page: up to 20 private and 20 agency listings
-page = yad2.realestate.search("rent", city="raanana", max_price=8000, min_rooms=3)
-print(page.total, "results in", page.total_pages, "pages")
-for listing in page.items:
-    print(listing.price, listing.rooms, listing.square_meters, listing.street, listing.url)
+# Madlan: everything for sale in Tel Aviv (6,000+ listings, 7 requests), newest first
+madlan = Madlan()
+for listing in madlan.iter_search("sale", city="tel aviv", min_rooms=4):
+    print(listing.price, listing.price_per_sqm, listing.price_history)
+new_today = list(madlan.iter_search("rent", city="haifa", created_within_days=1))
+details = madlan.get("3qf8TukWuF9")
 
-# Every result, page after page, without duplicates
-for listing in yad2.realestate.iter_search("forsale", city="tel aviv", parking=True):
+# Yad2: real estate and vehicles
+yad2 = Yad2()
+page = yad2.realestate.search("rent", city="raanana", max_price=8000)
+for listing in yad2.realestate.iter_search("sale", city="tel aviv", parking=True):
     ...
-
-# Full details of one listing
 detail = yad2.realestate.get("2zijxipe")
-print(detail.description, detail.features)
-
-# Map markers (coordinates, at most 200 per call), for a city or inside a bounding box
-markers = yad2.realestate.map("rent", city="tel aviv")
-markers = yad2.realestate.map("rent", city="tel aviv", bbox=(32.07, 34.77, 32.08, 34.78))
-
-# Vehicles
 for car in yad2.vehicles.iter_search("cars", manufacturer="toyota", year=(2018, 2022), max_pages=2):
     print(car.year, car.model, car.hand, car.price, car.url)
 ```
 
-Every object has typed fields, `to_dict()`, and `raw`: the full API payload, minus personal data.
-More in [examples/](examples): Telegram alerts, price per m² by neighborhood.
+### What you get
 
-### Real-estate filters
+Every real-estate listing has the same core fields, whatever the site:
+
+`source`, `id`, `url`, `deal` (`sale`/`rent`), `price`, `rooms`, `square_meters`, `floor`, `city`,
+`neighborhood`, `street`, `house_number`, `lat`, `lon`, `images`, and `raw` (the payload, minus
+personal data).
+
+Plus, on **Madlan**: `price_per_sqm`, `price_history` (each price drop, dated), `first_seen`,
+`updated_at`, `condition`, `building_year`, `floors`, `monthly_taxes`, `common_charges`,
+`available_date`, `description`, `amenities`, `floor_plans`. On **Yad2**: `ad_type`,
+`property_type`, `tags`, `agency_name`, `cover_image`, and with `get()`: `description`,
+`created_at`, `updated_at`, `features`.
+
+### Filters
+
+Common to both sites (and to `israel-listings`):
 
 | Filter | Meaning |
 |---|---|
-| `city`, `region` | City name (Hebrew/English) or id; the region is deduced from the city |
-| `area`, `neighborhood`, `street` | Ids, as used on the site |
+| `city` | Name in Hebrew or English (`"raanana"`, `"רעננה"`), or Yad2 city id |
 | `min_price`, `max_price` | Price in ₪ |
 | `min_rooms`, `max_rooms` | Rooms (half rooms allowed) |
 | `min_sqm`, `max_sqm` | Surface in m² |
 | `min_floor`, `max_floor` | Floor |
-| `property_types` | Property type ids: 1 apartment, 3 garden apartment, 4 studio/loft, 5 house, 6 penthouse, 7 duplex, 11 housing unit… |
-| `parking`, `elevator`, `balcony`, `shelter`, `air_conditioner`, `renovated`, `furniture`, `bars`, `accessibility`, `pets` | `True` to require it |
-| `image_only`, `price_only`, `price_dropped` | Only listings with photos / a price / a price drop |
-| `text` | Free text |
-| `sort` | `"price-asc"` or `"price-desc"` (default: the site's order) |
+| `parking`, `elevator`, `balcony`, `shelter`, `air_conditioner`, `accessibility`, `pets`, `furniture` | `True` to require it |
 
-### Vehicle filters
+Madlan only: `neighborhood` (Hebrew name) or `location_id`, `seller_types` (`private`, `agent`,
+`developer`), `conditions` (`new`, `asNew`, `renovated`, `preserved`, `requiresRenovation`…),
+`price_drop`, `created_within_days`, `only_immediate`, `no_fee`, `storage`, `garage`, `pool`,
+`gym`, `doorman`, `outdoor_space`, `roofdeck`, `sort` (`date`, `price-asc`, `price-desc`,
+`size-desc`). No city means the whole country.
 
-`manufacturer` (name or id), `model`, `area`, `engine_type`, `gearbox`, `seats`, `family_type`,
-`price_only`, and ranges given as `(min, max)` tuples (`None` for an open bound): `year`,
-`price`, `km`, `hand`. Categories: `cars`, `motorcycles`, `scooters`, `trucks`.
+Yad2 only: `region`, `area`, `neighborhood` and `street` (ids), `property_types` (1 apartment,
+3 garden apartment, 4 studio/loft, 5 house, 6 penthouse, 7 duplex, 11 housing unit…),
+`renovated`, `bars`, `image_only`, `price_only`, `price_dropped`, `text`, `sort`
+(`price-asc`, `price-desc`). Vehicles: `manufacturer` (name or id), `model`, `area`,
+`engine_type`, `gearbox`, `seats`, `family_type`, `price_only`, and ranges as `(min, max)`
+tuples: `year`, `price`, `km`, `hand`.
 
 ## Rate limits, measured
 
 Measured on 23 November 2026 from a datacenter server in the Netherlands, with
-[`scripts/benchmark.py`](scripts/benchmark.py). One request is one page of search results:
-40 listings.
+[`scripts/benchmark.py`](scripts/benchmark.py) and the probes behind it.
 
-| Pace | Route | Duration | Requests OK | Refused | Per hour |
-|---|---|---|---|---|---|
-| 1 req/s (the default) | direct | 29 min | 1,732 | **0** | ~3,600 requests ≈ 144,000 listings |
-| 1 req/s | Cloudflare WARP | 29 min | 1,740 | **0** | same |
-| 3 req/s (3 threads) | direct | 20 min | 3,601 | **0** | ~10,800 requests ≈ 432,000 listings |
-| As fast as possible (16 threads) | direct | 54 s | 1,779 (33 req/s) | then the IP | — |
-| 1 req/s, *without* session renewal | direct and WARP | 7.5 min | ~455 each | then all | — |
+### Madlan
 
-What this means:
+| Pace | Duration | Requests OK | Refused |
+|---|---|---|---|
+| Whole country, default pace (1 req/s) | 5.5 min | about 50 requests, 45,432 listings | **0** |
+| One session, ~2.6 req/s | 6 min | 900 | **0** |
+| 5 req/s (4 threads) | 3 min | 900 | **0** |
+| 8 req/s (6 threads) | 3 min | 1,440 | **0** |
+| As fast as possible (16 threads) | 9 s | 373 (41 req/s) | then Cloudflare's rate limit, lifted after a few seconds |
+
+No per-session limit was found. Cloudflare only reacts to bursts (around 370 requests in 10
+seconds), and for a minute after one it is stricter. Since one request carries up to 1,000
+listings, the default pace is far more than enough.
+
+### Yad2
+
+One request is one page of search results: 40 listings.
+
+| Pace | Route | Duration | Requests OK | Refused |
+|---|---|---|---|---|
+| 1 req/s (the default) | direct | 29 min | 1,732 | **0** |
+| 1 req/s | Cloudflare WARP | 29 min | 1,740 | **0** |
+| 3 req/s (3 threads) | direct | 20 min | 3,601 | **0** |
+| As fast as possible (16 threads) | direct | 54 s | 1,779 (33 req/s) | then the IP, for 17 minutes |
+| 1 req/s, *without* session renewal | direct and WARP | 7.5 min | ~455 each | then all |
 
 - **Sessions are limited, not speed.** Yad2 refuses a session after about 450 requests at any
-  pace. Renewing it, which the client does every 300 requests, removes the problem: compare the
-  last line with the first two.
-- **The IP itself was only refused after bursts** (about 1,800 requests within a minute or two)
-  or a day of heavy testing. Those IP blocks lasted from a few seconds to about 20 minutes (17
-  minutes after the burst above), longer after repeated abuse. A fallback route (below) keeps you
-  going meanwhile.
-- **Real needs are far below that.** All of Tel Aviv for sale (10,000+ listings) is 490 requests;
-  Tel Aviv and Ra'anana, for sale and for rent (16,000 listings), 725 requests: about 12 minutes
-  at the default pace, which one IP can repeat every hour.
+  pace. Renewing it every 300 requests, as the client does, removes the problem.
+- **The IP itself was only refused after bursts** (about 1,800 requests within a minute or two),
+  for a few seconds to about 20 minutes. A fallback route keeps you going meanwhile.
+- All of Tel Aviv for sale is 490 requests; Tel Aviv and Ra'anana, for sale and for rent, 725:
+  about 12 minutes at the default pace.
 
 Measure your own IP or proxy (it pauses on any refusal, so it never hammers a blocked IP):
 
 ```bash
-python scripts/benchmark.py --rate 1 --minutes 10
-python scripts/benchmark.py --threads 16 --stop-on-block   # where does your IP get refused?
-python scripts/benchmark.py --rate 1 --minutes 10 --proxy socks5h://127.0.0.1:40000
+python scripts/benchmark.py --rate 1 --minutes 10                      # Yad2
+python scripts/benchmark.py --site madlan --rate 5 --threads 4 --minutes 3
+python scripts/benchmark.py --threads 16 --stop-on-block               # where does your IP get refused?
 ```
 
 ## Free fallback route: Cloudflare WARP
 
-When the bot protection refuses your IP, the client can switch to another route at once and come
-back after `route_cooldown` (10 min). [Cloudflare WARP](https://1.1.1.1/) is free and works well
-for this. Start it as a local SOCKS5 proxy, without root and without touching your network setup:
+When the protection refuses your IP, the client can switch to another route at once and come
+back after `route_cooldown` (10 min). [Cloudflare WARP](https://1.1.1.1/) is free and works for
+both sites. Start it as a local SOCKS5 proxy, without root and without touching your network:
 
 ```bash
 scripts/warp-proxy.sh          # downloads wgcf + wireproxy (checksums verified), Ctrl-C to stop
-yad2 --fallback-proxy socks5h://127.0.0.1:40000 realestate rent --city raanana --watch seen.json --every 3600
+israel-listings --fallback-proxy socks5h://127.0.0.1:40000 rent --city raanana --watch seen.json --every 3600
 ```
 
 ```python
-yad2 = Yad2(fallback_proxies=["socks5h://127.0.0.1:40000"])
+madlan = Madlan(fallback_proxies=["socks5h://127.0.0.1:40000"])
 ```
 
 On a desktop, the official WARP client does the same: `warp-cli registration new`,
@@ -191,60 +258,77 @@ On a desktop, the official WARP client does the same: `warp-cli registration new
 
 ## How it works
 
-Yad2's website loads its listings from a JSON API on `gw.yad2.co.il`. The whole site sits behind
-Radware Bot Manager plus a firewall. What we found:
+### Yad2
 
-- **TLS fingerprint decides first.** `requests`, `curl` and most HTTP libraries are redirected to a
-  captcha page whatever their headers; the same request with a browser's TLS/HTTP2 fingerprint
-  passes. The `User-Agent` itself is not checked on the API.
+Yad2's website loads its listings from a JSON API on `gw.yad2.co.il`, behind Radware Bot Manager
+and a firewall.
+
+- **TLS fingerprint decides first.** `requests` and `curl` are redirected to a captcha whatever
+  their headers; a browser's TLS/HTTP2 fingerprint passes. The `User-Agent` is not checked.
 - **Send what the site sends.** With a Chrome fingerprint, a request without `Referer` is refused.
-- **Limits are per session first.** Radware tracks its cookies (`__uzma`…`uzmx`): one session is
-  refused after about 450 requests, whatever the pace (we got 451 at 2 req/s and ~455 at 1 req/s),
-  and stays refused, while a fresh session from the same IP passes at once. yad2-client renews
-  its session every 300 requests (`session_max_requests`) and right after a refusal. IP-level
-  blocks exist too, but take much more.
-- **The API is far more lenient than the HTML pages.** A headless Chrome usually gets a captcha by
-  its second page (or the first, once the IP is known), while the API keeps answering. No browser
-  is needed at all.
-- **Refusals come in four shapes**: a redirect to `validate.perfdrive.com`, a "Radware" HTML page,
-  a firewall "403 Forbidden" HTML page, and a firewall stub served as valid JSON
-  (`{"_event_transid": ...}`). The last one looks like an empty result; yad2-client detects all
-  four and raises `BlockedError` (or switches route) instead of returning nothing.
-- **Unknown parameters are rejected** (`"foo is not allowed"`), so filters are validated before
-  sending.
-- Search results come in two lists (private and agency, 20 each per page) that together hold every
-  listing; promoted listings repeat them and rotate on each call, so they are ignored.
+- **Limits are per session first.** Radware tracks its cookies (`__uzma`…`uzmx`): a session is
+  refused after about 450 requests at any pace, and stays refused, while a fresh session from the
+  same IP passes at once. The client renews its session every 300 requests and after a refusal.
+- **The API is far more lenient than the HTML pages**, where a headless browser gets a captcha.
+- **Refusals come in four shapes**: a redirect to `validate.perfdrive.com`, a "Radware" page, a
+  firewall "403 Forbidden" page, and a firewall stub served as valid JSON
+  (`{"_event_transid": ...}`) that would look like "no results". All four are detected.
+- Unknown parameters are rejected (`"foo is not allowed"`), so filters are checked before sending.
+
+### Madlan
+
+- **The website is locked down**: Cloudflare challenges plain clients, and PerimeterX shows a
+  "press and hold" captcha to headless browsers. Scraping its pages is a dead end.
+- **Its GraphQL API is not**: `POST /api2` answers plain HTTP requests, with any browser
+  fingerprint, from a datacenter IP, as long as they carry the site's headers
+  (`x-source: web`, `x-requested-with`). Without them the answer is `sorry a1`. No account or
+  token is needed.
+- **Up to 1,000 listings per request**, with each listing's price history (`eventsHistory`).
+- **Paging is odd**: whatever `offset` says, results start at `(offset // limit) × 34`. A naive
+  client gets the first 1,000 listings and then the same ones again; this one computes the right
+  offsets and re-reads page edges, and gets every listing (6,222 of 6,222 in Tel Aviv).
+- **Cloudflare rate-limits bursts** (around 370 requests in 10 seconds) for a few seconds.
+- Places are resolved through Madlan's own search (`רעננה` → `רעננה-ישראל`), English names via
+  the bundled city table. Past sale transactions exist in the API but stop in 2020, so they are
+  left out.
 
 ## Responsible use
 
-- Yad2's terms of use restrict automated access. You are responsible for how you use this tool.
-  Personal, reasonable use (your apartment hunt, an alert for a car model, research) is what it
-  is designed for.
-- Keep the default pace. One request per second is 40 listings per second, more than enough to
-  follow a whole city every hour, and it never got us refused (see the measurements).
-- Listings are public, but the people behind them are not: yad2-client strips seller names, ids,
-  phone numbers and free-text fields that contain them, and does not fetch phone numbers.
-  Israeli privacy law applies to whatever you store.
+- Both sites' terms of use restrict automated access, and Madlan's `robots.txt` asks crawlers to
+  stay away from `/api2/`. You are responsible for how you use this tool. Personal, reasonable use
+  (your apartment hunt, an alert, research) is what it is designed for.
+- Keep the default pace. It never got us refused, and it is plenty: on Madlan one request is up
+  to 1,000 listings.
+- Listings are public, but the people behind them are not: no seller names, ids or phone numbers
+  are returned, contact fields are never requested, and phone numbers in descriptions are
+  replaced by `[phone removed]`. Israeli privacy law applies to whatever you store.
 
 ## Troubleshooting
 
-- **`BlockedError`**: the client already waited (`block_retries=2`, `block_wait=60` s). Slow
-  down, wait 10 to 20 minutes, or add a fallback route (WARP).
-- **`no Yad2 city matches`**: try `yad2 cities <part of the name>`, or pass the numeric id.
-- **`Yad2APIError: ... is not allowed`**: the API rejected a parameter; check the filter name.
+- **`BlockedError`**: the client already waited and retried. Slow down, wait 10 to 20 minutes, or
+  add a fallback route (WARP).
+- **`no Yad2 city matches` / `Madlan has no city`**: try `yad2 cities <part of the name>` or
+  `madlan places <Hebrew name>`, or pass an id.
+- **`ApiError: ... is not allowed`** (Yad2) or a GraphQL message (Madlan): a parameter was
+  rejected; check the filter name.
 - **Empty results** where the site shows some: open an issue with the command.
 
 ## Development
 
 ```bash
 pip install -e ".[dev]"
-pytest                               # offline tests, under a second
+pytest                                   # offline tests, under a second
 ruff check .
-python scripts/update_cities.py      # refresh the bundled city table
-python scripts/benchmark.py --help   # measure the limits from your IP
+python scripts/update_cities.py          # refresh the bundled city table
+python scripts/update_manufacturers.py   # refresh the car manufacturers table
+python scripts/benchmark.py --help       # measure the limits from your IP
 ```
 
-Contributions are welcome, especially when Yad2 changes its API: open an issue with the failing
+Adding a site: write a client that builds an `HttpClient` (`src/israel_listings/http.py`) with the
+site's base URL, headers and a function recognizing its refusals, return `Listing` subclasses
+(`src/israel_listings/models.py`), and register it in `SITES` (`combined.py`).
+
+Contributions are welcome, especially when a site changes its API: open an issue with the failing
 command and the error.
 
 ## License

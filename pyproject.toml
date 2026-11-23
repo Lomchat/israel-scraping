@@ -3,15 +3,15 @@ requires = ["hatchling>=1.26"]
 build-backend = "hatchling.build"
 
 [project]
-name = "yad2-client"
-version = "0.2.0"
-description = "Unofficial Python client and CLI for Yad2 (yad2.co.il): real-estate and vehicle listings"
+name = "israel-listings"
+version = "0.3.0"
+description = "Unofficial Python clients and CLI for Israeli listing sites: Yad2 and Madlan (real estate, cars)"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 requires-python = ">=3.10"
-authors = [{ name = "yad2-client contributors" }]
-keywords = ["yad2", "israel", "real-estate", "scraper", "apartments", "cars", "listings"]
+authors = [{ name = "israel-listings contributors" }]
+keywords = ["yad2", "madlan", "israel", "real-estate", "scraper", "apartments", "cars", "listings", "nadlan"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -25,17 +25,19 @@ dependencies = ["curl_cffi>=0.7"]
 dev = ["pytest>=8", "ruff>=0.6"]
 
 [project.scripts]
-yad2 = "yad2_client.cli:main"
+yad2 = "israel_listings.cli:yad2_main"
+madlan = "israel_listings.cli:madlan_main"
+israel-listings = "israel_listings.cli:all_main"
 
 [project.urls]
-Homepage = "https://github.com/Lomchat/yad2-client"
-Issues = "https://github.com/Lomchat/yad2-client/issues"
+Homepage = "https://github.com/Lomchat/israel-listings"
+Issues = "https://github.com/Lomchat/israel-listings/issues"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/yad2_client"]
+packages = ["src/israel_listings"]
 
 [tool.ruff]
-line-length = 110
+line-length = 120
 target-version = "py310"
 extend-exclude = ["probe"]
 

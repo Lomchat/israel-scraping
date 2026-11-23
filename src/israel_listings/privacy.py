@@ -1,12 +1,14 @@
 """Removal of personal data from API payloads.
 
 Listings are public, but some payloads carry data about private sellers (first name, internal
-customer id, a free-text field that repeats the seller's name). yad2-client never returns them:
-only an agency's business name and logo are kept.
+customer id, a free-text field that repeats the seller's name). israel-listings never returns them:
+only an agency's business name and logo are kept, contact fields are never requested, and phone
+numbers typed into descriptions are removed.
 """
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 _KEEP_IN_CUSTOMER = {"agencyName", "agencyLogo"}
@@ -21,6 +23,15 @@ _DROP_KEYS = {
     "contactName",
     "contactPhone",
 }
+
+
+# Israeli phone numbers as people type them in descriptions: 050-1234567, 03 123 4567, +972 52...
+_PHONE = re.compile(r"(?<!\d)(?:\+?972[-\s.]?|0)(?:[23489]|5\d|7\d)[-\s.]?\d{3}[-\s.]?\d{4}(?!\d)")
+
+
+def redact_phones(text: str | None) -> str | None:
+    """Replace phone numbers found in free text (descriptions) by ``[phone removed]``."""
+    return _PHONE.sub("[phone removed]", text) if text else text
 
 
 def scrub(obj: Any) -> Any:

@@ -1,6 +1,6 @@
 import json
 
-from yad2_client import cli
+from israel_listings import cli
 
 from .conftest import FakeResponse, feed, make_item
 
@@ -58,9 +58,9 @@ def test_cli_watch_outputs_only_new_listings(client_with, monkeypatch, tmp_path,
     argv = ["realestate", "rent", "--city", "raanana", "--watch", state]
 
     assert cli.main(argv) == 0
-    assert [json.loads(line)["token"] for line in capsys.readouterr().out.splitlines()] == ["a", "b"]
+    assert [json.loads(line)["id"] for line in capsys.readouterr().out.splitlines()] == ["a", "b"]
 
     listings.append(make_item("c"))
     assert cli.main(argv) == 0
-    assert [json.loads(line)["token"] for line in capsys.readouterr().out.splitlines()] == ["c"]
+    assert [json.loads(line)["id"] for line in capsys.readouterr().out.splitlines()] == ["c"]
     assert set(json.load(open(state))["seen"]) == {"a", "b", "c"}

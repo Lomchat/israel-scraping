@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from yad2_client import Yad2
+from israel_listings import Yad2
 
 
 class FakeResponse:
@@ -29,10 +29,13 @@ class FakeSession:
         self.route = route
         self.calls: list[tuple[str, dict]] = []
         self.proxies: list[str | None] = []
+        self.bodies: list[Any] = []  # decoded JSON bodies of POST requests
 
-    def get(self, url: str, params: dict | None = None, proxies: dict | None = None, **_: Any) -> Any:
+    def request(self, method: str, url: str, params: dict | None = None, data: Any = None,
+                proxies: dict | None = None, **_: Any) -> Any:
         self.calls.append((url, dict(params or {})))
         self.proxies.append((proxies or {}).get("https"))
+        self.bodies.append(json.loads(data) if data else None)
         return self.route(url, dict(params or {}))
 
 

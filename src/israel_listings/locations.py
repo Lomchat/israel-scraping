@@ -35,7 +35,7 @@ def _norm(text: str) -> str:
 
 @lru_cache(maxsize=1)
 def _data() -> dict:
-    return json.loads(resources.files("yad2_client").joinpath("data/cities.json").read_text("utf-8"))
+    return json.loads(resources.files("israel_listings").joinpath("data/cities.json").read_text("utf-8"))
 
 
 @lru_cache(maxsize=1)

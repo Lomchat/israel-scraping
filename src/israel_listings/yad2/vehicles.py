@@ -9,12 +9,13 @@ from functools import lru_cache
 from importlib import resources
 from typing import TYPE_CHECKING, Any
 
-from .locations import rank_matches
-from .models import CarListing, Page
+from ..locations import rank_matches
+from ..models import Page
+from .models import CarListing
 from .models import payload_data as _data
 
 if TYPE_CHECKING:
-    from .client import Yad2
+    from . import Yad2
 
 CATEGORIES = ("cars", "motorcycles", "scooters", "trucks")
 
@@ -29,7 +30,7 @@ class Manufacturer:
 
 @lru_cache(maxsize=1)
 def all_manufacturers() -> tuple[Manufacturer, ...]:
-    raw = json.loads(resources.files("yad2_client").joinpath("data/manufacturers.json").read_text("utf-8"))
+    raw = json.loads(resources.files("israel_listings").joinpath("data/manufacturers.json").read_text("utf-8"))
     return tuple(Manufacturer(*row) for row in raw["rows"])
 
 

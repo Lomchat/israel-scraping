@@ -1,4 +1,4 @@
-"""Regenerate src/yad2_client/data/manufacturers.json (car manufacturers: id, Hebrew and English
+"""Regenerate src/israel_listings/data/manufacturers.json (car manufacturers: id, Hebrew and English
 names, number of listings).
 
 Ids come from Yad2's public sitemap, Hebrew names from one page of listings per manufacturer
@@ -18,10 +18,10 @@ sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
 from curl_cffi import requests  # noqa: E402
 
-from yad2_client import Yad2  # noqa: E402
+from israel_listings import Yad2  # noqa: E402
 
 SITEMAP = "https://www.yad2.co.il/sitemaps-v3/yad2/vehicles/cars/manufacturers_1.xml"
-OUT = pathlib.Path(__file__).resolve().parents[1] / "src" / "yad2_client" / "data" / "manufacturers.json"
+OUT = pathlib.Path(__file__).resolve().parents[1] / "src" / "israel_listings" / "data" / "manufacturers.json"
 
 # Hebrew name as shown on Yad2 -> English name (left out when unsure: Hebrew and id still work)
 ENGLISH: dict[str, str] = {
