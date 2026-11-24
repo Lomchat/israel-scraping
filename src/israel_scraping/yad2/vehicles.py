@@ -30,7 +30,7 @@ class Manufacturer:
 
 @lru_cache(maxsize=1)
 def all_manufacturers() -> tuple[Manufacturer, ...]:
-    raw = json.loads(resources.files("israel_listings").joinpath("data/manufacturers.json").read_text("utf-8"))
+    raw = json.loads(resources.files("israel_scraping").joinpath("data/manufacturers.json").read_text("utf-8"))
     return tuple(Manufacturer(*row) for row in raw["rows"])
 
 

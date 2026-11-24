@@ -13,7 +13,7 @@ from .models import Listing, drop_duplicates
 from .yad2 import Yad2
 
 SITES = {"yad2": Yad2, "madlan": Madlan}
-log = logging.getLogger("israel_listings")
+log = logging.getLogger("israel_scraping")
 
 
 def search_all(

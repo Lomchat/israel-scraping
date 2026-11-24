@@ -1,8 +1,8 @@
 import pytest
 
-from israel_listings import BlockedError, Yad2, Yad2APIError, find_city
-from israel_listings.yad2.realestate import build_params
-from israel_listings.yad2.vehicles import build_params as vehicle_params
+from israel_scraping import BlockedError, Yad2, Yad2APIError, find_city
+from israel_scraping.yad2.realestate import build_params
+from israel_scraping.yad2.vehicles import build_params as vehicle_params
 
 from .conftest import FakeResponse, FakeSession
 
@@ -62,7 +62,7 @@ def test_sessions_are_renewed_before_and_after_the_per_session_limit():
 def test_refused_route_falls_back_to_proxy_then_comes_back(client_with, monkeypatch):
     """Blocked direct route -> switch to the fallback proxy at once, back to direct after the rest."""
     clock = [1000.0]
-    monkeypatch.setattr("israel_listings.http.time.monotonic", lambda: clock[0])
+    monkeypatch.setattr("israel_scraping.http.time.monotonic", lambda: clock[0])
     redirect = FakeResponse(302, headers={"location": "https://validate.perfdrive.com/x"}, text="")
     ok = FakeResponse(body={"data": {}})
     answers = iter([redirect, ok, ok, ok])

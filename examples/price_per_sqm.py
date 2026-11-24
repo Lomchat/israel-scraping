@@ -10,7 +10,7 @@ import statistics
 import sys
 from collections import defaultdict
 
-from israel_listings import Yad2
+from israel_scraping import Yad2
 
 city = sys.argv[1] if len(sys.argv) > 1 else "raanana"
 prices: dict[str, list[float]] = defaultdict(list)

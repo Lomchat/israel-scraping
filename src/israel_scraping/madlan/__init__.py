@@ -93,7 +93,7 @@ class Madlan:
     >>> madlan = Madlan()
     >>> for listing in madlan.iter_search("rent", city="raanana", max_price=8000): ...
 
-    Options are those of :class:`israel_listings.http.HttpClient` (``delay``, ``proxy``,
+    Options are those of :class:`israel_scraping.http.HttpClient` (``delay``, ``proxy``,
     ``fallback_proxies``, ``block_wait``...).
     """
 

@@ -7,3 +7,5 @@ dist/
 .ruff_cache/
 # local research notes and scratch output
 probe/
+# local notes for agents, never published
+CLAUDE.md

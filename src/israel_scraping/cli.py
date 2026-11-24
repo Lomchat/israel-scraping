@@ -1,4 +1,4 @@
-"""Command line tools: ``yad2``, ``madlan`` and ``israel-listings`` (both sites at once)."""
+"""Command line tools: ``yad2``, ``madlan`` and ``israel-scraping`` (both sites at once)."""
 
 from __future__ import annotations
 
@@ -63,7 +63,7 @@ def _words(text: str) -> list[str]:
 
 
 def _add_network_args(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--version", action="version", version=f"israel-listings {__version__}")
+    parser.add_argument("--version", action="version", version=f"israel-scraping {__version__}")
     parser.add_argument("--delay", type=float, default=1.0, help="seconds between requests (default 1)")
     parser.add_argument("--impersonate", default="chrome", help="browser fingerprint (curl_cffi name)")
     parser.add_argument("--proxy", help="proxy URL, e.g. socks5h://127.0.0.1:1080")
@@ -377,10 +377,10 @@ def madlan_main(argv: list[str] | None = None) -> int:
 
 def build_all_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="israel-listings",
+        prog="israel-scraping",
         description="Search several Israeli listing sites at once (Yad2, Madlan). Same columns for "
                     "every site, with a 'source' column.",
-        epilog="Example: israel-listings rent --city raanana --max-price 8000 --min-rooms 3 -f csv",
+        epilog="Example: israel-scraping rent --city raanana --max-price 8000 --min-rooms 3 -f csv",
     )
     _add_network_args(parser)
     sub = parser.add_subparsers(dest="command", required=True)

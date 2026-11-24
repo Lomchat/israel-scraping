@@ -1,4 +1,4 @@
-"""Regenerate src/israel_listings/data/cities.json from Yad2's address service.
+"""Regenerate src/israel_scraping/data/cities.json from Yad2's address service.
 
 Usage: python scripts/update_cities.py
 """
@@ -11,9 +11,9 @@ import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "src"))
 
-from israel_listings import Yad2  # noqa: E402
+from israel_scraping import Yad2  # noqa: E402
 
-OUT = pathlib.Path(__file__).resolve().parents[1] / "src" / "israel_listings" / "data" / "cities.json"
+OUT = pathlib.Path(__file__).resolve().parents[1] / "src" / "israel_scraping" / "data" / "cities.json"
 
 
 def main() -> None:

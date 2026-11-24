@@ -13,7 +13,7 @@ from curl_cffi import requests as cffi_requests
 
 from .errors import ApiError, BlockedError, ListingsError
 
-log = logging.getLogger("israel_listings")
+log = logging.getLogger("israel_scraping")
 
 
 def _encode(value: Any) -> Any:

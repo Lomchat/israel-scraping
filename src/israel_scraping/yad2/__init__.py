@@ -45,7 +45,7 @@ class Yad2:
     >>> yad2 = Yad2()
     >>> page = yad2.realestate.search("rent", city="raanana", max_price=8000)
 
-    Options are those of :class:`israel_listings.http.HttpClient`: ``delay`` (1 s by default),
+    Options are those of :class:`israel_scraping.http.HttpClient`: ``delay`` (1 s by default),
     ``proxy``, ``fallback_proxies``, ``session_max_requests`` (300: Yad2 refuses a session after
     about 450 requests), ``block_retries``, ``block_wait``, ``route_cooldown``, ``impersonate``...
     """

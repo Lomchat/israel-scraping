@@ -25,8 +25,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from israel_listings import BlockedError, ListingsError, Madlan, Yad2  # noqa: E402
-from israel_listings.madlan import STEP  # noqa: E402
+from israel_scraping import BlockedError, ListingsError, Madlan, Yad2  # noqa: E402
+from israel_scraping.madlan import STEP  # noqa: E402
 
 SEARCHES = [
     ("sale", "tel aviv"), ("rent", "tel aviv"), ("sale", "jerusalem"), ("rent", "jerusalem"),
@@ -68,7 +68,7 @@ def main() -> None:
                 with lock:
                     stats["sessions_replaced"] += 1
 
-    client_log = logging.getLogger("israel_listings")
+    client_log = logging.getLogger("israel_scraping")
     client_log.setLevel(logging.INFO)
     client_log.addHandler(CountReplacements())
     latencies: list[float] = []

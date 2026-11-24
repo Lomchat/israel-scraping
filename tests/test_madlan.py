@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from israel_listings import ApiError, BlockedError, Listing, Madlan, MadlanListing, drop_duplicates
+from israel_scraping import ApiError, BlockedError, Listing, Madlan, MadlanListing, drop_duplicates
 
 from .conftest import FakeResponse, FakeSession
 

@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from israel_listings import Yad2
+from israel_scraping import Yad2
 
 
 class FakeResponse:

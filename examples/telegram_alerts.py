@@ -22,7 +22,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from israel_listings import Listing, search_all
+from israel_scraping import Listing, search_all
 
 DEAL = "rent"  # or "sale"
 CITY = "raanana"

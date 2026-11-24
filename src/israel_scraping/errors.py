@@ -1,10 +1,10 @@
-"""Exceptions raised by israel-listings."""
+"""Exceptions raised by israel-scraping."""
 
 from __future__ import annotations
 
 
 class ListingsError(Exception):
-    """Base class for all israel-listings errors."""
+    """Base class for all israel-scraping errors."""
 
 
 class BlockedError(ListingsError):

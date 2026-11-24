@@ -1,7 +1,7 @@
 """Removal of personal data from API payloads.
 
 Listings are public, but some payloads carry data about private sellers (first name, internal
-customer id, a free-text field that repeats the seller's name). israel-listings never returns them:
+customer id, a free-text field that repeats the seller's name). israel-scraping never returns them:
 only an agency's business name and logo are kept, contact fields are never requested, and phone
 numbers typed into descriptions are removed.
 """

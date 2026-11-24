@@ -1,16 +1,17 @@
 # Changelog
 
-## 0.3.0 (2026-11-23): israel-listings, Madlan
+## 0.3.0 (2026-11-23): israel-scraping, Madlan
 
-The project becomes **israel-listings** (repository, package `israel-listings`, import
-`israel_listings`): several Israeli sites, one data model.
+The project becomes **israel-scraping** (repository, package `israel-scraping`, import
+`israel_scraping`): several Israeli sites, one data model. (The repository was briefly named
+`israel-listings`, and `yad2-client` before that; old URLs redirect.)
 
 - **Madlan** (`Madlan`, `madlan` command): search sale and rent listings through Madlan's GraphQL
   API, up to 1,000 per request (all of Madlan, 45,000 listings, in about 6 minutes). Filters
   aligned with Yad2's, plus seller type, condition, price drops, listings of the last N days,
   neighborhoods by Hebrew name. Price history of each listing. The API's odd paging (steps of 34
   whatever the offset) is handled: every listing is returned once.
-- **Both sites at once**: `search_all()` and the `israel-listings` command, same columns with a
+- **Both sites at once**: `search_all()` and the `israel-scraping` command, same columns with a
   `source` field, and a property listed on both sites kept once (`drop_duplicates`).
 - **Common model**: every real-estate listing is a `Listing` (`source`, `id`, `url`, `deal`,
   `price`, `rooms`, `square_meters`, `floor`, address, coordinates, images); `Yad2Listing` and

@@ -1,6 +1,6 @@
-# israel-listings
+# israel-scraping
 
-[![CI](https://github.com/Lomchat/israel-listings/actions/workflows/ci.yml/badge.svg)](https://github.com/Lomchat/israel-listings/actions/workflows/ci.yml)
+[![CI](https://github.com/Lomchat/israel-scraping/actions/workflows/ci.yml/badge.svg)](https://github.com/Lomchat/israel-scraping/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.10%2B-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
@@ -10,7 +10,7 @@ Unofficial Python library and command line tools to collect listings from Israel
 one command with duplicates removed, CSV/JSON export, and alerts that only show new listings.
 
 ```bash
-israel-listings rent --city raanana --max-price 8000 --min-rooms 3 -f csv -o raanana.csv
+israel-scraping rent --city raanana --max-price 8000 --min-rooms 3 -f csv -o raanana.csv
 # 84 listings: 67 from Yad2, 17 more from Madlan (3 listed on both are kept once), same columns
 ```
 
@@ -40,8 +40,8 @@ israel-listings rent --city raanana --max-price 8000 --min-rooms 3 -f csv -o raa
 אפשר לקבל בכל הרצה רק את המודעות החדשות, למשל להתראות בטלגרם.
 
 ```bash
-pip install git+https://github.com/Lomchat/israel-listings
-israel-listings rent --city רעננה --max-price 8000 --min-rooms 3 -f csv -o raanana.csv
+pip install git+https://github.com/Lomchat/israel-scraping
+israel-scraping rent --city רעננה --max-price 8000 --min-rooms 3 -f csv -o raanana.csv
 ```
 
 ## The sites
@@ -53,12 +53,12 @@ israel-listings rent --city רעננה --max-price 8000 --min-rooms 3 -f csv -o 
 | Whole inventory | Tel Aviv for sale: 490 requests | Whole country (45,000 listings): about 50 requests |
 | Protection | Radware Bot Manager + firewall | Cloudflare + PerimeterX on the website, Cloudflare on the API |
 | What it takes | Browser TLS fingerprint, `Referer`, a new session every 300 requests | The site's `x-source` headers; no account, no token |
-| Commands | `yad2`, `israel-listings` | `madlan`, `israel-listings` |
+| Commands | `yad2`, `israel-scraping` | `madlan`, `israel-scraping` |
 
 ## Install
 
 ```bash
-pip install git+https://github.com/Lomchat/israel-listings
+pip install git+https://github.com/Lomchat/israel-scraping
 ```
 
 Python 3.10+, Linux, macOS or Windows. The only dependency is `curl_cffi`.
@@ -69,11 +69,11 @@ Python 3.10+, Linux, macOS or Windows. The only dependency is `curl_cffi`.
 
 ```bash
 # Rentals in Ra'anana on Yad2 and Madlan, same columns, a "source" column, duplicates dropped
-israel-listings rent --city raanana --max-price 8000 --min-rooms 3 -f csv -o raanana.csv
+israel-scraping rent --city raanana --max-price 8000 --min-rooms 3 -f csv -o raanana.csv
 
 # Only one site, or keep the duplicates
-israel-listings sale --city "tel aviv" --sites madlan --parking --elevator > tlv.jsonl
-israel-listings sale --city haifa --keep-duplicates -f json -o haifa.json
+israel-scraping sale --city "tel aviv" --sites madlan --parking --elevator > tlv.jsonl
+israel-scraping sale --city haifa --keep-duplicates -f json -o haifa.json
 ```
 
 A property listed on both sites appears once (same street, number, rooms, price within 3%; about
@@ -115,7 +115,7 @@ three commands:
 
 ```bash
 # from cron, e.g. every hour
-israel-listings rent --city raanana --max-price 8000 --watch seen.json >> new.jsonl
+israel-scraping rent --city raanana --max-price 8000 --watch seen.json >> new.jsonl
 
 # or keep it running
 madlan rent --city raanana --max-price 8000 --watch seen.json --every 3600
@@ -128,7 +128,7 @@ stopping it. For Telegram alerts, see [examples/telegram_alerts.py](examples/tel
 ## Python
 
 ```python
-from israel_listings import Madlan, Yad2, search_all
+from israel_scraping import Madlan, Yad2, search_all
 
 # Both sites, one stream, duplicates dropped
 for listing in search_all("rent", "raanana", max_price=8000, min_rooms=3):
@@ -167,7 +167,7 @@ Plus, on **Madlan**: `price_per_sqm`, `price_history` (each price drop, dated), 
 
 ### Filters
 
-Common to both sites (and to `israel-listings`):
+Common to both sites (and to `israel-scraping`):
 
 | Filter | Meaning |
 |---|---|
@@ -245,7 +245,7 @@ both sites. Start it as a local SOCKS5 proxy, without root and without touching 
 
 ```bash
 scripts/warp-proxy.sh          # downloads wgcf + wireproxy (checksums verified), Ctrl-C to stop
-israel-listings --fallback-proxy socks5h://127.0.0.1:40000 rent --city raanana --watch seen.json --every 3600
+israel-scraping --fallback-proxy socks5h://127.0.0.1:40000 rent --city raanana --watch seen.json --every 3600
 ```
 
 ```python
@@ -324,9 +324,9 @@ python scripts/update_manufacturers.py   # refresh the car manufacturers table
 python scripts/benchmark.py --help       # measure the limits from your IP
 ```
 
-Adding a site: write a client that builds an `HttpClient` (`src/israel_listings/http.py`) with the
+Adding a site: write a client that builds an `HttpClient` (`src/israel_scraping/http.py`) with the
 site's base URL, headers and a function recognizing its refusals, return `Listing` subclasses
-(`src/israel_listings/models.py`), and register it in `SITES` (`combined.py`).
+(`src/israel_scraping/models.py`), and register it in `SITES` (`combined.py`).
 
 Contributions are welcome, especially when a site changes its API: open an issue with the failing
 command and the error.

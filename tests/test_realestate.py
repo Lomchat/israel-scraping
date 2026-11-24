@@ -1,6 +1,6 @@
 import json
 
-from israel_listings import cli
+from israel_scraping import cli
 
 from .conftest import FakeResponse, feed, make_item
 
